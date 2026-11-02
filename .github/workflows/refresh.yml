@@ -35,13 +35,17 @@ jobs:
       - name: Commit changed subscription
         shell: bash
         run: |
-          git add -A -- subscription.yaml status.json
+          git add -A -- status.json
+          if [ -e subscription.yaml ] || git ls-files --error-unmatch subscription.yaml >/dev/null 2>&1; then
+            git add -A -- subscription.yaml
+          fi
           if git diff --cached --quiet; then
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'Publish HTTPS-checked China proxy status'
+          git pull --rebase origin main
           git push
       - name: Report unavailable subscription
         run: |
