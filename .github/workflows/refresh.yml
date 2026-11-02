@@ -1,6 +1,12 @@
 name: Refresh Karing candidates
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh.yml'
+      - 'scripts/update.py'
+      - 'requirements.txt'
   workflow_dispatch:
   schedule:
     - cron: '17 * * * *'
