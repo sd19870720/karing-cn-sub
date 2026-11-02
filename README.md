@@ -10,6 +10,21 @@ https://raw.githubusercontent.com/sd19870720/karing-cn-sub/main/subscription.yam
 
 [查看订阅文件](subscription.yaml) · [查看更新任务](https://github.com/sd19870720/karing-cn-sub/actions/workflows/refresh.yml)
 
+直链无法访问时，可尝试备用 CDN（存在缓存延迟）：
+
+```text
+https://cdn.jsdelivr.net/gh/sd19870720/karing-cn-sub@main/subscription.yaml
+```
+
+## 部署验证（2026-11-02）
+
+- Actions 工作流已启用，两次由代码变更触发的运行均成功；[最近一次验证](https://github.com/sd19870720/karing-cn-sub/actions/runs/41408141222)。
+- 已观察到 `github-actions[bot]` 自动提交更新，提交 `7e218e6cd4661c02cc286bdc66fcf7e8f5ddfd91`。
+- 15:47（北京时间）核验直链 HTTP 200，内容与仓库当前订阅一致，包含 160 条候选。
+- 备用 CDN 返回 HTTP 200，解析后的配置一致，但文件注释仍有缓存差异。
+- 每小时调度已配置；本次验收为实际运行与自动提交，不把尚未等待到的下一次定时触发写成已实测。
+- 以上不包含 iPhone 或抖音的真实使用验收。
+
 ## iPhone 使用
 
 1. 在 Karing 打开 **设置 → 添加配置 → 添加配置链接**，粘贴上面的完整网址。
@@ -24,6 +39,7 @@ iOS 当前在打开或回到 Karing 时检查到期更新，不能保证锁屏�
 ## 更新方式
 
 GitHub Actions 每小时第 17 分钟尝试刷新，也支持在 Actions 页面手动运行。
+更新脚本、依赖或工作流时也会触发运行；仅更新订阅文件不会循环触发。
 只有候选配置变化时才提交；下载失败或没有有效候选时会失败并保留旧文件。
 GitHub 定时任务可能延迟，不是严格准点服务；可以在上面的任务页面检查最近运行结果。
 
