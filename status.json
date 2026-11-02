@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-11-02T08:28:15.384582+00:00",
+  "state": "no_verified_nodes",
+  "environment": "GitHub Actions runner",
+  "candidates": 160,
+  "passed": 0,
+  "failures": {
+    "connection_failed": 49,
+    "timeout": 101,
+    "exit_unverified": 3,
+    "socks_failed": 6,
+    "tls_failed": 1
+  },
+  "iphone_and_douyin": "not_verified",
+  "candidates_available": 160,
+  "serving_previous": false,
+  "last_success": null,
+  "subscription_available": false
+}
