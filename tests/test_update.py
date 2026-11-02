@@ -1,4 +1,5 @@
 """Offline safety and publication-boundary tests. No proxy connections are made."""
+import base64
 from datetime import datetime, timedelta, timezone
 import json
 import os
@@ -55,6 +56,38 @@ class RequestTests(unittest.TestCase):
             self.assertNotIn(insecure, command)
         self.assertLessEqual(float(command[command.index('--max-time') + 1]), 12)
         self.assertLessEqual(run.call_args.kwargs['timeout'], 15)
+
+    @patch('validate.shutil.which', return_value='/usr/bin/curl')
+    @patch('validate.subprocess.run')
+    def test_http_connect_request_uses_explicit_proxy_and_keeps_https_checks(self, run, _which):
+        run.return_value = subprocess.CompletedProcess(
+            [], 0, 'HTTP/1.1 200 Connection established\r\n\r\nHTTP/2 200\r\n\r\nok', '')
+        node = dict(NODE, type='http')
+        node.pop('udp')
+        with patch.dict(os.environ, {'NO_PROXY': '*', 'no_proxy': '*',
+                                     'HTTPS_PROXY': 'http://unwanted.invalid:8080'}):
+            response = validate.request('https://example.com/', node)
+        self.assertTrue(response['ok'])
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index('--proxy') + 1], 'http://8.8.8.8:1080')
+        self.assertEqual(command[command.index('--noproxy') + 1], '')
+        self.assertEqual(command[command.index('--proto') + 1], '=https')
+        self.assertEqual(command[command.index('--url') + 1], 'https://example.com/')
+        self.assertEqual(command[1], '--disable')
+        for insecure in ('-k', '--insecure', '--proxy-insecure'):
+            self.assertNotIn(insecure, command)
+        run.assert_called_once()
+
+    @patch('validate.shutil.which', return_value='/usr/bin/curl')
+    @patch('validate.subprocess.run')
+    def test_http_connect_headers_are_removed_before_actual_target_body(self, run, _which):
+        run.return_value = subprocess.CompletedProcess(
+            [], 0,
+            'HTTP/1.1 200 Connection established\r\nProxy-Agent: example\r\n\r\n'
+            'HTTP/2 200\r\ncontent-type: text/plain\r\n\r\nactual target body', '')
+        response = validate.request('https://example.com/', dict(NODE, type='http'))
+        self.assertTrue(response['ok'])
+        self.assertEqual(response['body'], 'actual target body')
 
     @patch('validate.shutil.which', return_value='/usr/bin/curl')
     @patch('validate.subprocess.run')
@@ -195,6 +228,168 @@ class CandidateTests(unittest.TestCase):
             result = validate.check_candidate(NODE, {validate.GEO_URLS[0]: '9.9.9.9'})
         self.assertFalse(result['ok'])
         self.assertEqual(result['reason'], 'exit_unverified')
+
+
+class CandidateConstructionTests(unittest.TestCase):
+    def test_unknown_and_missing_cities_are_kept_for_exit_validation(self):
+        for city in ('Unknown', '', None):
+            with self.subTest(city=city):
+                source = [dict(SOURCE[0], geolocation={'country': 'CN', 'city': city})]
+                nodes = update.build_config(source)['proxies']
+                self.assertEqual(len(nodes), 1)
+                self.assertTrue(nodes[0]['name'].startswith('待核验-'))
+        source = [dict(SOURCE[0], geolocation={'country': 'CN'})]
+        self.assertEqual(len(update.build_config(source)['proxies']), 1)
+
+    def test_monosans_accepts_http_and_socks5_but_rejects_authentication(self):
+        base = {'host': '8.8.8.8', 'port': 8080,
+                'geolocation': {'country': {'iso_code': 'CN'},
+                                'city': {'names': {'en': 'Shanghai'}}}}
+        items = [dict(base, protocol='http'), dict(base, protocol='socks5'),
+                 dict(base, protocol='http', username='user'),
+                 dict(base, protocol='http', password='secret'),
+                 dict(base, protocol='socks5', username='user', password='secret'),
+                 dict(base, protocol='socks4'),
+                 dict(base, protocol='http',
+                      geolocation={'country': {'iso_code': 'US'}})]
+        normalized = update.normalize_monosans(items)
+        self.assertEqual([node['protocol'] for node in normalized], ['http', 'socks5'])
+        self.assertEqual(normalized[0]['ip'], '8.8.8.8')
+        self.assertEqual(normalized[0]['geolocation'], {'country': 'CN', 'city': 'Shanghai'})
+
+    def test_both_protocols_at_one_endpoint_have_unique_names_and_clash_fields(self):
+        source = [dict(SOURCE[0], protocol='http'), SOURCE[0], dict(SOURCE[0])]
+        nodes = update.build_config(source)['proxies']
+        self.assertEqual(len(nodes), 2)
+        self.assertEqual({node['type'] for node in nodes}, {'http', 'socks5'})
+        self.assertEqual(len({node['name'] for node in nodes}), 2)
+        self.assertEqual({(node['server'], node['port']) for node in nodes}, {('8.8.8.8', 1080)})
+        http = next(node for node in nodes if node['type'] == 'http')
+        socks = next(node for node in nodes if node['type'] == 'socks5')
+        self.assertIn('-HTTP-', http['name'])
+        self.assertNotIn('udp', http)
+        self.assertFalse(socks['udp'])
+
+    def test_small_candidate_budget_covers_protocols_and_regions(self):
+        source = [
+            dict(SOURCE[0], protocol='http'),
+            dict(SOURCE[1], protocol='http'),
+            dict(SOURCE[0], protocol='socks5', ip='9.9.9.9',
+                 geolocation={'country': 'CN', 'city': 'Guangzhou'}),
+            dict(SOURCE[1], protocol='socks5', ip='208.67.222.222',
+                 geolocation={'country': 'CN', 'city': 'Shenzhen'}),
+        ]
+        candidates = update.build_config(source)['proxies']
+        selected = update.select_candidates(candidates, limit=2)
+        self.assertEqual(len(selected), 2)
+        self.assertEqual({node['type'] for node in selected}, {'http', 'socks5'})
+        self.assertEqual(len({node['name'].split('-')[0] for node in selected}), 2)
+
+
+class SourceFetchingTests(unittest.TestCase):
+    def test_databay_parser_accepts_endpoints_but_rejects_auth_urls_and_invalid_ports(self):
+        text = '\n'.join((
+            '8.8.8.8:8080', '[2001:4860:4860::8888]:1080', '', '# comment',
+            'user:password@8.8.8.8:80', 'http://8.8.8.8:80',
+            '8.8.8.8:0', '8.8.8.8:65536', '8.8.8.8:+80',
+            '8.8.8.8:８０', '8.8.8.8 :80', 'not-an-address:80', 'malformed',
+        ))
+        nodes = update.normalize_databay(text, 'http')
+        self.assertEqual([(node['ip'], node['port']) for node in nodes],
+                         [('8.8.8.8', 8080), ('2001:4860:4860::8888', 1080)])
+        self.assertTrue(all(node['protocol'] == 'http' for node in nodes))
+        self.assertTrue(all(node['geolocation'] == {'country': 'CN', 'city': '待核验'}
+                            for node in nodes))
+        with self.assertRaises(ValueError):
+            update.normalize_databay(text, 'https')
+
+    def test_vakhov_filters_country_auth_and_protocol_flags_without_treating_ssl_as_http(self):
+        base = {'ip': '8.8.8.8', 'port': '8080', 'country_code': 'CN', 'city': ''}
+        nodes = update.normalize_vakhov([
+            dict(base, http='1', socks5=1),
+            dict(base, country_code='US', http='1'),
+            dict(base, username='user', http='1'),
+            dict(base, password='password', socks5='1'),
+            dict(base, ssl='1', socks4='1'), None,
+        ])
+        self.assertEqual([node['protocol'] for node in nodes], ['http', 'socks5'])
+        self.assertTrue(all(node['geolocation']['city'] == '待核验' for node in nodes))
+        with self.assertRaises(ValueError):
+            update.normalize_vakhov({'unexpected': 'object'})
+
+    def test_github_contents_without_inline_content_uses_validated_blob_sha(self):
+        blob = {'encoding': 'base64', 'content': base64.encodebytes(b'fixture').decode()}
+        with patch('update.request_json', side_effect=[
+            {'encoding': 'none', 'sha': 'a' * 40}, blob,
+        ]) as request:
+            payload = update.github_file('test/repository', 'path/file')
+        self.assertEqual(payload, b'fixture')
+        self.assertEqual([call.args[0] for call in request.call_args_list], [
+            'https://api.github.com/repos/test/repository/contents/path/file',
+            'https://api.github.com/repos/test/repository/git/blobs/' + 'a' * 40,
+        ])
+
+    def test_github_fallback_rejects_malformed_sha_without_requesting_blob(self):
+        for sha in ('../unsafe', 'z' * 40, 'a' * 39, None):
+            with self.subTest(sha=sha), patch('update.request_json', return_value={
+                'encoding': 'none', 'sha': sha,
+            }) as request:
+                with self.assertRaises(ValueError):
+                    update.github_file('test/repository', 'file')
+                request.assert_called_once()
+
+    def test_raw_and_decoded_github_files_obey_the_same_size_limit(self):
+        with patch('update.MAX_SOURCE_BYTES', 3), \
+             patch('update.urllib.request.urlopen') as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b'four'
+            with self.assertRaises(ValueError):
+                update.request_bytes('https://example.com/source')
+            response.read.assert_called_once_with(4)
+        with patch('update.MAX_SOURCE_BYTES', 3), patch('update.request_json', return_value={
+            'encoding': 'base64', 'content': base64.b64encode(b'four').decode(),
+        }):
+            with self.assertRaises(ValueError):
+                update.github_file('test/repository', 'file')
+
+    def test_databay_raw_failure_falls_back_to_only_http_and_socks5_files(self):
+        with patch('update.request_text', side_effect=OSError), \
+             patch('update.github_file', return_value=b'8.8.8.8:8080') as github:
+            nodes = update.fetch_databay()
+        self.assertEqual({node['protocol'] for node in nodes}, {'http', 'socks5'})
+        self.assertEqual([call.args for call in github.call_args_list], [
+            (update.DATABAY_REPO, 'by-country/cn/http.txt'),
+            (update.DATABAY_REPO, 'by-country/cn/socks5.txt'),
+        ])
+
+    def test_databay_keeps_one_file_when_the_other_is_unavailable(self):
+        with patch('update.request_text', side_effect=[OSError(), '8.8.8.8:1080']), \
+             patch('update.github_file', side_effect=OSError):
+            nodes = update.fetch_databay()
+        self.assertEqual(len(nodes), 1)
+        self.assertEqual(nodes[0]['protocol'], 'socks5')
+
+    def test_vakhov_json_fallback_applies_country_and_protocol_normalization(self):
+        content = json.dumps([
+            {'ip': '8.8.8.8', 'port': 8080, 'country_code': 'CN', 'http': '1'},
+            {'ip': '1.1.1.1', 'port': 8080, 'country_code': 'US', 'http': '1'},
+        ]).encode()
+        with patch('update.request_json', side_effect=OSError), \
+             patch('update.github_file', return_value=content) as github:
+            nodes = update.fetch_vakhov()
+        github.assert_called_once_with(update.VAKHOV_REPO, 'proxylist.json')
+        self.assertEqual(len(nodes), 1)
+        self.assertEqual(nodes[0]['protocol'], 'http')
+
+    def test_four_sources_are_combined_and_one_failure_does_not_discard_others(self):
+        with patch('update.fetch_proxifly', autospec=True, return_value=[SOURCE[0]]) as proxifly, \
+             patch('update.fetch_monosans', autospec=True, side_effect=OSError) as monosans, \
+             patch('update.fetch_databay', autospec=True, return_value=[SOURCE[1]]) as databay, \
+             patch('update.fetch_vakhov', autospec=True, return_value=[]) as vakhov:
+            rows = update.fetch_source()
+        self.assertEqual(rows, SOURCE)
+        for fetcher in (proxifly, monosans, databay, vakhov):
+            fetcher.assert_called_once()
 
 
 class PublicationTests(unittest.TestCase):

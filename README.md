@@ -1,6 +1,6 @@
 # Karing 国内候选订阅自动更新
 
-从 Proxifly 和 monosans 收集无需认证的候选，只有通过实际 HTTPS 请求及国内出口核验的节点才发布到 Karing 订阅。
+从 Proxifly、monosans、Databay Labs 和 Alex Vakhov 四个来源收集无需认证的 HTTP CONNECT / SOCKS5 候选，只有通过实际 HTTPS 请求及国内出口核验的节点才发布到 Karing 订阅。
 当前节点数量与检查时间见 [status.json](status.json)。
 
 **固定订阅地址：**
@@ -63,18 +63,19 @@ GitHub Actions 每小时第 17 分钟尝试刷新，也支持在 Actions 页面�
 后续任务发现过期会移除。任务停止运行、手机离线时不会自动清除手机缓存。
 GitHub 定时任务可能延迟，不是严格准点服务；可以在上面的任务页面检查最近运行结果。
 
-筛选 CN、SOCKS5、已标注地区、公共 IP 和有效端口后，使用显式 SOCKS5h 请求百度公开 HTTPS 页面，
+筛选 CN、HTTP CONNECT / SOCKS5、公共 IP 和有效端口后，使用显式 HTTP 或 SOCKS5h 代理请求百度公开 HTTPS 页面，
 保留证书校验，并通过 HTTPS 出口查询核对实际出口是中国且不同于检测机直连出口。
+上游城市缺失或标为 Unknown 时仍保留为待核验候选，不按缺失城市直接丢弃；通过检查后使用实际出口城市命名。
 出口查询优先使用国内 IPIP 服务，避免国内节点无法访问境外检测站点而被误判；
 只有国内查询服务自身不可用时，才尝试备用查询服务。
 不发送账号、Cookie 或登录请求。国家未确认、境外出口、超时、握手失败都会剔除。
-每轮最多 300 个候选、10 个并发、约 5 分钟探测预算；单请求最多 8 秒。
+每轮最多 600 个候选、16 个并发、约 5 分钟探测预算；单请求最多 8 秒。
 地区名称使用实际出口查询结果，可能与抖音数据库不同。未知英文地区保留原文。
 
 ## 验证边界
 
 - 检测在 GitHub Actions 的网络环境运行，不保证国内手机网络也能连接。
-- 候选节点可能随时失效，UDP 能力未确认，所以关闭 UDP。
+- 候选节点可能随时失效，SOCKS5 的 UDP 能力未确认，配置中关闭 UDP；HTTP CONNECT 仅用于 TCP 连接。
 - 自动更新只刷新候选列表，不保证节点持续可用、始终同城或适配抖音。
 - iPhone 导入、实际出口、抖音属地及作品推荐效果仍需在用户设备上分别验收。
 - 换 IP 不保证作品推荐给目标城市。
@@ -83,6 +84,8 @@ GitHub 定时任务可能延迟，不是严格准点服务；可以在上面的�
 
 - [上游数据](https://github.com/proxifly/free-proxy-list)
 - [补充来源 monosans/proxy-list](https://github.com/monosans/proxy-list)
+- [补充来源 databay-labs/free-proxy-list](https://github.com/databay-labs/free-proxy-list)
+- [补充来源 vakhov/fresh-proxy-list](https://github.com/vakhov/fresh-proxy-list)
 - [源码与第三方声明](THIRD_PARTY_NOTICES.md)
 - [GPL-3.0 许可证](LICENSE)
 - [Karing 添加配置说明](https://karing.app/app-manual/add-profiles)

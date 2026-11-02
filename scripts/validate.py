@@ -1,4 +1,4 @@
-"""Bounded SOCKS5 HTTPS checks; no account traffic and no direct fallback."""
+"""Bounded HTTP CONNECT/SOCKS5 HTTPS checks without direct fallback."""
 import ipaddress
 import json
 import re
@@ -24,7 +24,10 @@ def request(url, node=None):
         host = node['server']
         if ':' in host:
             host = f'[{host}]'
-        command += ['--proxy', f'socks5h://{host}:{node["port"]}', '--noproxy', '']
+        protocol = {'socks5': 'socks5h', 'http': 'http'}.get(node.get('type', 'socks5'))
+        if protocol is None:
+            return {'ok': False, 'reason': 'unsupported_proxy_type'}
+        command += ['--proxy', f'{protocol}://{host}:{node["port"]}', '--noproxy', '']
     started = time.monotonic()
     try:
         result = subprocess.run(command, capture_output=True, text=True,
