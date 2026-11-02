@@ -1,5 +1,7 @@
 # 自动生成的公开 SOCKS5 候选配置；未实测连接或抖音效果。
 # 来源：https://github.com/proxifly/free-proxy-list
+# SPDX-License-Identifier: GPL-3.0-only
+# 许可与转换源码：https://github.com/sd19870720/karing-cn-sub
 # 城市名称来自上游元数据，可能与实际出口或抖音显示不同。
 # UDP 能力未经确认，因此关闭 UDP。
 allow-lan: false
