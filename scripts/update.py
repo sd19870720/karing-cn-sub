@@ -86,6 +86,8 @@ def write_config(config, destination):
     header = (
         '# 自动生成的公开 SOCKS5 候选配置；未实测连接或抖音效果。\n'
         '# 来源：https://github.com/proxifly/free-proxy-list\n'
+        '# SPDX-License-Identifier: GPL-3.0-only\n'
+        '# 许可与转换源码：https://github.com/sd19870720/karing-cn-sub\n'
         '# 城市名称来自上游元数据，可能与实际出口或抖音显示不同。\n'
         '# UDP 能力未经确认，因此关闭 UDP。\n'
     )
