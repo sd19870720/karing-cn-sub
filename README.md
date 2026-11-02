@@ -14,7 +14,7 @@ https://raw.githubusercontent.com/sd19870720/karing-cn-sub/main/subscription.yam
 直链无法访问时，可尝试备用 CDN（存在缓存延迟）：
 
 ```text
-https://cdn.jsdelivr.net/gh/sd19870720/karing-cn-sub@main/subscription.yaml
+https://fastly.jsdelivr.net/gh/sd19870720/karing-cn-sub@main/subscription.yaml
 ```
 
 ## 初版部署验证（2026-11-02）
@@ -37,6 +37,16 @@ https://cdn.jsdelivr.net/gh/sd19870720/karing-cn-sub@main/subscription.yaml
 - 16:50 又从当前 Windows 电脑网络复测这 3 个节点，全部通过上述检查。
 - 主订阅及备用 CDN 返回 HTTP 200，SHA256 均为 72d8e1b64812d741d159db8675f08feab65c83f9bb29bfee19e20082bb617234，与仓库文件一致。
 - 这是当次检测结果，后续数量以 status.json 为准；仍不等于用户 iPhone 或抖音实际效果验收。
+
+## 扩充来源验证（2026-11-02）
+
+- [扩充后的工作流](https://github.com/sd19870720/karing-cn-sub/actions/runs/41419013911)成功，38 项离线测试通过，自动提交为 `15869c7f4142b4c6cf7203da1dde343dace0d5bd`。
+- 17:14（北京时间）四个来源合并后有 624 个不同协议/端点候选，本轮检测 600 个；云端有 37 个通过 HTTPS 与国内出口检查，实际出口 IP 也为 37 个。
+- 其中 HTTP CONNECT 36 个、SOCKS5 1 个；北京 25，上海、佛山、杭州各 2，深圳、河源、广州、苏州、济南、石家庄各 1。
+- 17:20 从当前 Windows 网络复测发布的 37 个，22 个通过，覆盖其中 9 个城市。云端通过不保证国内当前网络也通过；免费节点会波动。
+- 当前订阅 SHA256 为 `65d62e3af033a807ef05ccb47f09662e5b050b3d9aa0e10110b838ed98dfa647`。Fastly 备用地址返回与仓库一致的内容。
+- 原 `cdn.jsdelivr.net` 地址本轮仍返回初版旧缓存，因此上方备用地址已换为本轮核对一致的 Fastly 地址；所有 CDN 都可能有缓存延迟。本机本轮访问 Raw 直链超时，仓库文件已通过 GitHub API 读回核验。
+- 数量只代表上述检测时间，最新结果以 status.json 为准；iPhone 和抖音仍待实际验收。
 
 ## iPhone 使用
 
