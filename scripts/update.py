@@ -1,12 +1,18 @@
-"""Build a Clash-compatible candidate list; never connect to proxy endpoints."""
+"""Publish only SOCKS5 nodes passing bounded HTTPS and China-exit checks."""
 import argparse
 import base64
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 import ipaddress
 import json
+import os
 from pathlib import Path
+import time
 import urllib.request
 
 import yaml
+from validate import baseline, check_candidate
 
 RAW = 'https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/countries/CN/data.json'
 API = 'https://api.github.com/repos/proxifly/free-proxy-list/contents/proxies/countries/CN/data.json'
@@ -65,14 +71,18 @@ def build_config(source):
         key = (str(address), port)
         candidates.setdefault(key, (city, str(address), port))
     if not candidates:
-        raise ValueError('No eligible candidates: keeping the existing configuration')
+        raise ValueError('No eligible candidates')
     nodes = []
     for city, address, port in sorted(candidates.values()):
         nodes.append({
             'name': f'{CITIES.get(city, city)}-{address}-{port}',
             'type': 'socks5', 'server': address, 'port': port, 'udp': False,
         })
-    group = '国内候选-手动选择'
+    return make_config(nodes)
+
+
+def make_config(nodes):
+    group = '国内节点-手动选择'
     return {
         'allow-lan': False, 'mode': 'global', 'log-level': 'warning',
         'proxies': nodes,
@@ -84,11 +94,12 @@ def build_config(source):
 
 def write_config(config, destination):
     header = (
-        '# 自动生成的公开 SOCKS5 候选配置；未实测连接或抖音效果。\n'
+        '# 仅发布本轮通过 HTTPS 及国内出口检查的 SOCKS5 节点。\n'
+        '# 结果仅代表检测环境；iPhone、抖音及 UDP 尚未验收。\n'
         '# 来源：https://github.com/proxifly/free-proxy-list\n'
         '# SPDX-License-Identifier: GPL-3.0-only\n'
         '# 许可与转换源码：https://github.com/sd19870720/karing-cn-sub\n'
-        '# 城市名称来自上游元数据，可能与实际出口或抖音显示不同。\n'
+        '# 地区名称来自出口查询结果，可能与抖音使用的数据库不同。\n'
         '# UDP 能力未经确认，因此关闭 UDP。\n'
     )
     text = header + yaml.safe_dump(config, allow_unicode=True, sort_keys=False)
@@ -100,16 +111,95 @@ def write_config(config, destination):
     temporary.replace(destination)
 
 
+def save_result(config, status, output, status_path, now):
+    previous = {}
+    if status_path.exists():
+        try:
+            previous = json.loads(status_path.read_text(encoding='utf-8'))
+        except (ValueError, OSError):
+            pass
+    last_success = previous.get('last_success')
+    if config is not None:
+        write_config(config, output)
+        last_success = {'checked_at': now.isoformat(),
+                        'expires_at': (now + timedelta(hours=2)).isoformat(),
+                        'nodes': len(config['proxies'])}
+        status['serving_previous'] = False
+    else:
+        retain = False
+        if status['state'] == 'checker_error' and last_success and output.exists():
+            try:
+                retain = datetime.fromisoformat(last_success['expires_at']) > now
+            except (ValueError, KeyError, TypeError):
+                pass
+        if not retain:
+            output.unlink(missing_ok=True)
+        status['serving_previous'] = retain
+    status['last_success'] = last_success
+    status['subscription_available'] = output.exists()
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = status_path.with_suffix('.json.tmp')
+    temporary.write_text(json.dumps(status, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    temporary.replace(status_path)
+
+
+def refresh(source, output, status_path, now=None):
+    now = now or datetime.now(timezone.utc)
+    status = {'checked_at': now.isoformat(), 'state': 'checker_error',
+              'environment': 'GitHub Actions runner' if os.environ.get('GITHUB_ACTIONS') else 'local checker', 'candidates': 0,
+              'passed': 0, 'failures': {}, 'iphone_and_douyin': 'not_verified'}
+    try:
+        direct = baseline()
+        try:
+            candidates = build_config(source)['proxies']
+        except ValueError:
+            if source == []:
+                candidates = []
+            elif isinstance(source, list):
+                candidates = []
+            else:
+                raise
+        status['candidates_available'] = len(candidates)
+        candidates = candidates[:300]
+        status['candidates'] = len(candidates)
+        deadline = time.monotonic() + 300
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            results = list(pool.map(lambda node: check_candidate(node, direct, deadline=deadline), candidates))
+        nodes = []
+        for node, result in zip(candidates, results):
+            if not result['ok']:
+                continue
+            node = dict(node)
+            area = CITIES.get(result['city'], result['city'])
+            node['name'] = f'{area}-{node["server"]}-{node["port"]}'
+            nodes.append(node)
+        status.update(state='ok' if nodes else 'no_verified_nodes', passed=len(nodes),
+                      failures=dict(Counter(result['reason'] for result in results if not result['ok'])))
+        config = make_config(nodes) if nodes else None
+    except Exception as error:
+        status['error'] = type(error).__name__ + ': ' + str(error)[:200]
+        config = None
+    save_result(config, status, output, status_path, now)
+    return status
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=Path, help='Use a saved source JSON for offline verification')
     parser.add_argument('--output', type=Path, default=Path('subscription.yaml'))
+    parser.add_argument('--status', type=Path, default=Path('status.json'))
     args = parser.parse_args()
-    source = (json.loads(args.input.read_text(encoding='utf-8-sig'))
-              if args.input else fetch_source())
-    config = build_config(source)
-    write_config(config, args.output)
-    print(f'Wrote {len(config["proxies"])} candidates to {args.output}; no proxy connections were tested')
+    try:
+        source = (json.loads(args.input.read_text(encoding='utf-8-sig'))
+                  if args.input else fetch_source())
+    except Exception as error:
+        now = datetime.now(timezone.utc)
+        status = {'checked_at': now.isoformat(), 'state': 'checker_error',
+                  'error': type(error).__name__, 'passed': 0}
+        save_result(None, status, args.output, args.status, now)
+    else:
+        status = refresh(source, args.output, args.status)
+    print(json.dumps(status, ensure_ascii=False))
 
 
 if __name__ == '__main__':

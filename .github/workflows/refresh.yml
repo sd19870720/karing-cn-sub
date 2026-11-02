@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/refresh.yml'
       - 'scripts/update.py'
+      - 'scripts/validate.py'
+      - 'tests/**'
       - 'requirements.txt'
   workflow_dispatch:
   schedule:
@@ -28,15 +30,19 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
       - run: python scripts/update.py
       - name: Commit changed subscription
         shell: bash
         run: |
-          if git diff --quiet -- subscription.yaml; then
+          git add -A -- subscription.yaml status.json
+          if git diff --cached --quiet; then
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add subscription.yaml
-          git commit -m 'Refresh public SOCKS5 candidates'
+          git commit -m 'Publish HTTPS-checked China proxy status'
           git push
+      - name: Report unavailable subscription
+        run: |
+          python -c "import json; s=json.load(open('status.json')); assert s['state']=='ok', 'No fresh verified subscription: '+s['state']"
