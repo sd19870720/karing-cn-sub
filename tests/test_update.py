@@ -39,7 +39,7 @@ class RequestTests(unittest.TestCase):
     @patch('validate.shutil.which', return_value='/usr/bin/curl')
     @patch('validate.subprocess.run')
     def test_socks_request_cannot_be_bypassed_by_no_proxy_and_keeps_tls_checks(self, run, _which):
-        run.return_value = subprocess.CompletedProcess([], 0, 'ok\n200 0.125', '')
+        run.return_value = subprocess.CompletedProcess([], 0, 'HTTP/2 200\r\ncontent-type: text/plain\r\n\r\nok', '')
         with patch.dict(os.environ, {'NO_PROXY': '*', 'no_proxy': '*',
                                      'HTTPS_PROXY': 'http://unwanted.invalid:8080'}):
             result = validate.request('https://example.com/', NODE)
@@ -49,10 +49,34 @@ class RequestTests(unittest.TestCase):
         self.assertEqual(command[command.index('--noproxy') + 1], '')
         self.assertEqual(command[command.index('--proto') + 1], '=https')
         self.assertEqual(command[1], '--disable')
+        self.assertIn('--include', command)
+        self.assertNotIn('--write-out', command)
         for insecure in ('-k', '--insecure', '--proxy-insecure'):
             self.assertNotIn(insecure, command)
         self.assertLessEqual(float(command[command.index('--max-time') + 1]), 12)
         self.assertLessEqual(run.call_args.kwargs['timeout'], 15)
+
+    @patch('validate.shutil.which', return_value='/usr/bin/curl')
+    @patch('validate.subprocess.run')
+    def test_intermediate_http_headers_are_not_returned_as_body(self, run, _which):
+        run.return_value = subprocess.CompletedProcess(
+            [], 0, 'HTTP/1.1 100 Continue\r\n\r\nHTTP/2 200\r\ncontent-type: text/plain\r\n\r\nfinal body', '')
+        response = validate.request('https://example.com/', NODE)
+        self.assertTrue(response['ok'])
+        self.assertEqual(response['body'], 'final body')
+
+    @patch('validate.shutil.which', return_value='/usr/bin/curl')
+    @patch('validate.subprocess.run')
+    def test_http_error_and_truncated_headers_are_not_success(self, run, _which):
+        for output, reason in (
+            ('HTTP/2 403\r\ncontent-type: text/plain\r\n\r\nblocked', 'http_403'),
+            ('HTTP/2 200\r\ncontent-type: text/plain', 'invalid_response'),
+        ):
+            with self.subTest(reason=reason):
+                run.return_value = subprocess.CompletedProcess([], 0, output, '')
+                response = validate.request('https://example.com/', NODE)
+                self.assertFalse(response['ok'])
+                self.assertEqual(response['reason'], reason)
 
     @patch('validate.shutil.which', return_value='/usr/bin/curl')
     @patch('validate.subprocess.run', side_effect=subprocess.TimeoutExpired('curl', 11))
@@ -65,6 +89,74 @@ class RequestTests(unittest.TestCase):
         self.assertIsNone(validate.geolocation(geo_response(ip='127.0.0.1')))
         self.assertIsNone(validate.geolocation(https_ok('not JSON')))
         self.assertIsNone(validate.geolocation(https_ok(json.dumps({'success': False, 'ip': '223.5.5.5'}))))
+
+
+class DomesticGeolocationTests(unittest.TestCase):
+    def test_mainland_plain_text_extracts_actual_ip_and_city(self):
+        result = validate.geolocation(https_ok('当前 IP：223.5.5.5  来自于：中国 广东 深圳 电信\n'))
+        self.assertEqual(result, {'ip': '223.5.5.5', 'country': 'CN', 'city': '深圳'})
+
+    def test_hong_kong_macao_and_taiwan_are_not_accepted_as_mainland_exits(self):
+        regions = (
+            ('香港', 'HK'), ('香港特别行政区', 'HK'),
+            ('澳门', 'MO'), ('澳门特别行政区', 'MO'),
+            ('台湾', 'TW'), ('台湾省', 'TW'),
+        )
+        for region, country in regions:
+            with self.subTest(region=region):
+                response = https_ok(f'当前 IP：223.5.5.5 来自于：中国 {region} 城市 运营商')
+                result = validate.geolocation(response)
+                self.assertEqual(result['country'], country)
+                with patch('validate.request', side_effect=[https_ok(), response]):
+                    checked = validate.check_candidate(NODE, {validate.GEO_URLS[0]: '9.9.9.9'})
+                self.assertFalse(checked['ok'])
+                self.assertEqual(checked['reason'], 'non_cn_exit')
+
+    def test_invalid_private_or_incomplete_plain_text_is_rejected(self):
+        for body in (
+            '当前 IP：999.1.1.1 来自于：中国 北京 北京',
+            '当前 IP：127.0.0.1 来自于：中国 北京 北京',
+            '当前 IP：10.1.2.3 来自于：中国 北京 北京',
+            '当前 IP：223.5.5.5 来自于：中国',
+            '<html>当前 IP：223.5.5.5 来自于：中国 北京 北京</html>',
+        ):
+            with self.subTest(body=body):
+                self.assertIsNone(validate.geolocation(https_ok(body)))
+
+
+class BaselineTests(unittest.TestCase):
+    def test_domestic_geolocation_success_avoids_foreign_checkers(self):
+        with patch('validate.request', side_effect=[
+            https_ok(), https_ok('当前 IP：223.5.5.5 来自于：中国 北京 北京 电信'),
+        ]) as request:
+            result = validate.baseline()
+        self.assertEqual(result, {validate.GEO_URLS[0]: '223.5.5.5'})
+        self.assertEqual([call.args[0] for call in request.call_args_list],
+                         [validate.DOMESTIC_URL, validate.GEO_URLS[0]])
+
+    def test_foreign_geolocation_is_only_fallback_after_domestic_checker_failure(self):
+        with patch('validate.request', side_effect=[
+            https_ok(), {'ok': False, 'reason': 'timeout'},
+            geo_response(ip='9.9.9.9', country='US'), {'ok': False, 'reason': 'timeout'},
+        ]) as request:
+            result = validate.baseline()
+        self.assertEqual(result, {validate.GEO_URLS[1]: '9.9.9.9'})
+        self.assertEqual([call.args[0] for call in request.call_args_list],
+                         [validate.DOMESTIC_URL, *validate.GEO_URLS])
+
+    def test_unusable_domestic_geo_response_also_allows_fallback(self):
+        with patch('validate.request', side_effect=[
+            https_ok(), https_ok('not an IP response'),
+            geo_response(ip='9.9.9.9', country='US'), {'ok': False, 'reason': 'timeout'},
+        ]):
+            self.assertEqual(validate.baseline(), {validate.GEO_URLS[1]: '9.9.9.9'})
+
+    def test_no_usable_geo_checker_raises_instead_of_validating_nodes(self):
+        with patch('validate.request', side_effect=[https_ok()] + [
+            {'ok': False, 'reason': 'timeout'} for _ in validate.GEO_URLS
+        ]):
+            with self.assertRaises(RuntimeError):
+                validate.baseline()
 
 
 class CandidateTests(unittest.TestCase):

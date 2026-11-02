@@ -1,6 +1,6 @@
 # Karing 国内候选订阅自动更新
 
-从 Proxifly 收集候选，只有通过实际 HTTPS 请求及国内出口核验的节点才发布到 Karing 订阅。
+从 Proxifly 和 monosans 收集无需认证的候选，只有通过实际 HTTPS 请求及国内出口核验的节点才发布到 Karing 订阅。
 当前节点数量与检查时间见 [status.json](status.json)。
 
 **固定订阅地址：**
@@ -57,6 +57,8 @@ GitHub 定时任务可能延迟，不是严格准点服务；可以在上面的�
 
 筛选 CN、SOCKS5、已标注地区、公共 IP 和有效端口后，使用显式 SOCKS5h 请求百度公开 HTTPS 页面，
 保留证书校验，并通过 HTTPS 出口查询核对实际出口是中国且不同于检测机直连出口。
+出口查询优先使用国内 IPIP 服务，避免国内节点无法访问境外检测站点而被误判；
+只有国内查询服务自身不可用时，才尝试备用查询服务。
 不发送账号、Cookie 或登录请求。国家未确认、境外出口、超时、握手失败都会剔除。
 每轮最多 300 个候选、10 个并发、约 5 分钟探测预算；单请求最多 8 秒。
 地区名称使用实际出口查询结果，可能与抖音数据库不同。未知英文地区保留原文。
@@ -72,6 +74,7 @@ GitHub 定时任务可能延迟，不是严格准点服务；可以在上面的�
 ## 来源与许可
 
 - [上游数据](https://github.com/proxifly/free-proxy-list)
+- [补充来源 monosans/proxy-list](https://github.com/monosans/proxy-list)
 - [源码与第三方声明](THIRD_PARTY_NOTICES.md)
 - [GPL-3.0 许可证](LICENSE)
 - [Karing 添加配置说明](https://karing.app/app-manual/add-profiles)

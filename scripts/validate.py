@@ -1,12 +1,13 @@
 """Bounded SOCKS5 HTTPS checks; no account traffic and no direct fallback."""
 import ipaddress
 import json
+import re
 import shutil
 import subprocess
 import time
 
 DOMESTIC_URL = 'https://www.baidu.com/robots.txt'
-GEO_URLS = ('https://api.ip.sb/geoip', 'https://ipwho.is/')
+GEO_URLS = ('https://myip.ipip.net/', 'https://api.ip.sb/geoip', 'https://ipwho.is/')
 
 
 def request(url, node=None):
@@ -16,7 +17,7 @@ def request(url, node=None):
     command = [curl, '--disable', '--silent', '--show-error',
                '--connect-timeout', '4', '--max-time', '8',
                '--max-filesize', '65536', '--proto', '=https',
-               '--write-out', '\n%{http_code} %{time_total}', '--url', url]
+               '--include', '--url', url]
     if node is None:
         command += ['--noproxy', '*']
     else:
@@ -24,6 +25,7 @@ def request(url, node=None):
         if ':' in host:
             host = f'[{host}]'
         command += ['--proxy', f'socks5h://{host}:{node["port"]}', '--noproxy', '']
+    started = time.monotonic()
     try:
         result = subprocess.run(command, capture_output=True, text=True,
                                 encoding='utf-8', errors='replace', timeout=11)
@@ -34,19 +36,41 @@ def request(url, node=None):
                 35: 'tls_failed', 60: 'certificate_failed', 97: 'socks_failed'}.get(
                     result.returncode, f'curl_{result.returncode}')}
     try:
-        body, metrics = result.stdout.rsplit('\n', 1)
-        code, duration = metrics.split()
-        elapsed = float(duration)
-    except ValueError:
+        body = result.stdout.replace('\r\n', '\n')
+        code = None
+        while body.startswith('HTTP/'):
+            headers, separator, body = body.partition('\n\n')
+            if not separator:
+                raise ValueError('Missing header separator')
+            code = headers.splitlines()[0].split()[1]
+        elapsed = time.monotonic() - started
+    except (ValueError, IndexError):
         return {'ok': False, 'reason': 'invalid_response'}
     if code not in ('200', '204'):
-        return {'ok': False, 'reason': 'http_' + code}
+        return {'ok': False, 'reason': 'http_' + str(code)}
     return {'ok': True, 'body': body, 'seconds': elapsed}
 
 
 def geolocation(response):
     if not response.get('ok'):
         return None
+    match = re.fullmatch(r'\s*当前 IP[:：]\s*(\S+)\s+来自于[:：]\s*(.*?)\s*', response.get('body', ''))
+    if match:
+        try:
+            address = ipaddress.ip_address(match.group(1))
+            parts = match.group(2).split()
+            if not address.is_global or len(parts) < 2:
+                return None
+            country = 'CN' if parts[0] == '中国' else 'OTHER'
+            for prefix, code in (('香港', 'HK'), ('澳门', 'MO'), ('澳門', 'MO'),
+                                 ('台湾', 'TW'), ('臺灣', 'TW')):
+                if parts[1].startswith(prefix):
+                    country = code
+                    break
+            return {'ip': str(address), 'country': country,
+                    'city': parts[2] if len(parts) >= 3 else parts[1]}
+        except ValueError:
+            return None
     try:
         value = json.loads(response['body'])
         address = ipaddress.ip_address(value['ip'])
@@ -66,6 +90,8 @@ def baseline():
         geo = geolocation(request(url))
         if geo:
             direct[url] = geo['ip']
+            if url == GEO_URLS[0]:
+                break
     if not direct:
         raise RuntimeError('No exit-IP check target is available from the checker')
     return direct
