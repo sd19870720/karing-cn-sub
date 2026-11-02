@@ -1,0 +1,35 @@
+# 仅发布本轮通过 HTTPS 及国内出口检查的 SOCKS5 节点。
+# 结果仅代表检测环境；iPhone、抖音及 UDP 尚未验收。
+# 来源：proxifly/free-proxy-list 与 monosans/proxy-list
+# SPDX-License-Identifier: GPL-3.0-only
+# 许可与转换源码：https://github.com/sd19870720/karing-cn-sub
+# 地区名称来自出口查询结果，可能与抖音使用的数据库不同。
+# UDP 能力未经确认，因此关闭 UDP。
+allow-lan: false
+mode: global
+log-level: warning
+proxies:
+- name: 北京-39.106.165.196-1080
+  type: socks5
+  server: 39.106.165.196
+  port: 1080
+  udp: false
+- name: 北京-39.106.170.168-1080
+  type: socks5
+  server: 39.106.170.168
+  port: 1080
+  udp: false
+- name: 北京-111.206.4.163-18888
+  type: socks5
+  server: 111.206.4.163
+  port: 18888
+  udp: false
+proxy-groups:
+- name: 国内节点-手动选择
+  type: select
+  proxies:
+  - 北京-39.106.165.196-1080
+  - 北京-39.106.170.168-1080
+  - 北京-111.206.4.163-18888
+rules:
+- MATCH,国内节点-手动选择

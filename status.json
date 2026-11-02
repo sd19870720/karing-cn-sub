@@ -1,19 +1,26 @@
 {
-  "checked_at": "2026-11-02T08:29:27.385832+00:00",
-  "state": "no_verified_nodes",
+  "checked_at": "2026-11-02T08:46:17.090286+00:00",
+  "state": "ok",
   "environment": "GitHub Actions runner",
-  "candidates": 160,
-  "passed": 0,
+  "candidates": 165,
+  "passed": 3,
   "failures": {
-    "connection_failed": 50,
-    "timeout": 100,
+    "connection_failed": 48,
+    "timeout": 104,
     "exit_unverified": 3,
     "socks_failed": 6,
     "tls_failed": 1
   },
   "iphone_and_douyin": "not_verified",
-  "candidates_available": 160,
+  "exit_check_services": [
+    "https://myip.ipip.net/"
+  ],
+  "candidates_available": 165,
   "serving_previous": false,
-  "last_success": null,
-  "subscription_available": false
+  "last_success": {
+    "checked_at": "2026-11-02T08:46:17.090286+00:00",
+    "expires_at": "2026-11-02T10:46:17.090286+00:00",
+    "nodes": 3
+  },
+  "subscription_available": true
 }
