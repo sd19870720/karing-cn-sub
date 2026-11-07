@@ -1,46 +1,46 @@
 {
-  "checked_at": "2026-11-07T18:46:21.047791+00:00",
+  "checked_at": "2026-11-07T22:43:42.329051+00:00",
   "state": "ok",
   "environment": "GitHub Actions runner",
   "candidates": 600,
-  "passed": 43,
+  "passed": 45,
   "failures": {
-    "certificate_failed": 2,
-    "connection_failed": 113,
-    "timeout": 385,
+    "timeout": 390,
+    "connection_failed": 108,
     "curl_56": 23,
+    "exit_unverified": 14,
+    "socks_failed": 15,
     "tls_failed": 3,
-    "socks_failed": 17,
-    "exit_unverified": 14
+    "non_cn_exit": 1,
+    "certificate_failed": 1
   },
   "iphone_and_douyin": "not_verified",
   "exit_check_services": [
     "https://myip.ipip.net/"
   ],
-  "candidates_available": 645,
+  "candidates_available": 636,
   "candidate_protocols": {
-    "http": 286,
-    "socks5": 314
+    "http": 276,
+    "socks5": 324
   },
-  "unique_exits": 42,
+  "unique_exits": 44,
   "protocols": {
-    "http": 41,
+    "http": 43,
     "socks5": 2
   },
   "areas": {
-    "北京": 34,
+    "北京": 36,
+    "深圳": 2,
     "上海": 3,
-    "重庆": 1,
+    "泸州": 1,
     "杭州": 2,
-    "济南": 1,
-    "深圳": 1,
-    "广州": 1
+    "山南": 1
   },
   "serving_previous": false,
   "last_success": {
-    "checked_at": "2026-11-07T18:46:21.047791+00:00",
-    "expires_at": "2026-11-07T20:46:21.047791+00:00",
-    "nodes": 43
+    "checked_at": "2026-11-07T22:43:42.329051+00:00",
+    "expires_at": "2026-11-08T00:43:42.329051+00:00",
+    "nodes": 45
   },
   "subscription_available": true
 }
