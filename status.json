@@ -1,17 +1,17 @@
 {
-  "checked_at": "2026-11-10T02:05:57.666697+00:00",
+  "checked_at": "2026-11-10T09:45:53.078947+00:00",
   "state": "ok",
   "environment": "GitHub Actions runner",
   "candidates": 600,
-  "passed": 48,
+  "passed": 50,
   "failures": {
-    "timeout": 405,
-    "connection_failed": 98,
-    "curl_56": 18,
-    "exit_unverified": 19,
-    "socks_failed": 9,
-    "tls_failed": 2,
-    "certificate_failed": 1
+    "certificate_failed": 2,
+    "connection_failed": 110,
+    "timeout": 384,
+    "curl_56": 17,
+    "socks_failed": 15,
+    "exit_unverified": 21,
+    "tls_failed": 1
   },
   "iphone_and_douyin": "not_verified",
   "exit_check_services": [
@@ -19,25 +19,25 @@
   ],
   "candidates_available": 663,
   "candidate_protocols": {
-    "http": 299,
-    "socks5": 301
+    "http": 297,
+    "socks5": 303
   },
-  "unique_exits": 47,
+  "unique_exits": 50,
   "protocols": {
-    "http": 46,
-    "socks5": 2
+    "http": 50
   },
   "areas": {
-    "北京": 42,
-    "杭州": 3,
-    "上海": 2,
-    "深圳": 1
+    "北京": 46,
+    "杭州": 1,
+    "青岛": 1,
+    "深圳": 1,
+    "广州": 1
   },
   "serving_previous": false,
   "last_success": {
-    "checked_at": "2026-11-10T02:05:57.666697+00:00",
-    "expires_at": "2026-11-10T04:05:57.666697+00:00",
-    "nodes": 48
+    "checked_at": "2026-11-10T09:45:53.078947+00:00",
+    "expires_at": "2026-11-10T11:45:53.078947+00:00",
+    "nodes": 50
   },
   "subscription_available": true
 }
