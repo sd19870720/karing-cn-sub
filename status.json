@@ -1,43 +1,17 @@
 {
-  "checked_at": "2026-11-11T06:12:25.748135+00:00",
-  "state": "ok",
+  "checked_at": "2026-11-11T14:18:46.925964+00:00",
+  "state": "checker_error",
   "environment": "GitHub Actions runner",
-  "candidates": 600,
-  "passed": 39,
-  "failures": {
-    "timeout": 399,
-    "connection_failed": 104,
-    "curl_56": 23,
-    "exit_unverified": 24,
-    "socks_failed": 9,
-    "tls_failed": 1,
-    "certificate_failed": 1
-  },
+  "candidates": 0,
+  "passed": 0,
+  "failures": {},
   "iphone_and_douyin": "not_verified",
-  "exit_check_services": [
-    "https://ipwho.is/"
-  ],
-  "candidates_available": 668,
-  "candidate_protocols": {
-    "http": 300,
-    "socks5": 300
-  },
-  "unique_exits": 39,
-  "protocols": {
-    "http": 38,
-    "socks5": 1
-  },
-  "areas": {
-    "北京": 36,
-    "Yuzhong": 1,
-    "广州": 1,
-    "上海": 1
-  },
+  "error": "RuntimeError: Domestic HTTPS check target is unavailable from the checker",
   "serving_previous": false,
   "last_success": {
     "checked_at": "2026-11-11T06:12:25.748135+00:00",
     "expires_at": "2026-11-11T08:12:25.748135+00:00",
     "nodes": 39
   },
-  "subscription_available": true
+  "subscription_available": false
 }
