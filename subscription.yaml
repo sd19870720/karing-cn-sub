@@ -9,13 +9,21 @@ allow-lan: false
 mode: global
 log-level: warning
 proxies:
+- name: 北京-HTTP-221.223.203.55-8888
+  type: http
+  server: 221.223.203.55
+  port: 8888
 - name: 北京-HTTP-111.192.28.24-8888
   type: http
   server: 111.192.28.24
   port: 8888
-- name: 北京-HTTP-111.192.52.56-8888
+- name: 北京-HTTP-111.192.42.91-8888
   type: http
-  server: 111.192.52.56
+  server: 111.192.42.91
+  port: 8888
+- name: 北京-HTTP-111.192.54.182-8888
+  type: http
+  server: 111.192.54.182
   port: 8888
 - name: 北京-HTTP-101.251.204.174-8080
   type: http
@@ -25,18 +33,35 @@ proxies:
   type: http
   server: 106.14.104.209
   port: 8080
+- name: 北京-HTTP-114.244.223.68-8888
+  type: http
+  server: 114.244.223.68
+  port: 8888
+- name: 北京-HTTP-123.119.176.120-8888
+  type: http
+  server: 123.119.176.120
+  port: 8888
+- name: 北京-HTTP-123.119.179.101-8888
+  type: http
+  server: 123.119.179.101
+  port: 8888
 - name: 北京-HTTP-123.121.113.161-8888
   type: http
   server: 123.121.113.161
+  port: 8888
+- name: 北京-HTTP-123.121.123.216-8888
+  type: http
+  server: 123.121.123.216
   port: 8888
 - name: 北京-HTTP-222.128.178.134-8888
   type: http
   server: 222.128.178.134
   port: 8888
-- name: 北京-HTTP-114.252.202.38-8888
-  type: http
-  server: 114.252.202.38
-  port: 8888
+- name: 苏州-221.225.48.100-8989
+  type: socks5
+  server: 221.225.48.100
+  port: 8989
+  udp: false
 - name: 杭州-HTTP-114.55.168.172-8080
   type: http
   server: 114.55.168.172
@@ -51,10 +76,11 @@ proxies:
   server: 39.106.165.196
   port: 1080
   udp: false
-- name: 北京-HTTP-221.221.162.6-8888
-  type: http
-  server: 221.221.162.6
-  port: 8888
+- name: 张家口-182.18.83.37-7890
+  type: socks5
+  server: 182.18.83.37
+  port: 7890
+  udp: false
 - name: 北京-HTTP-39.106.165.196-8080
   type: http
   server: 39.106.165.196
@@ -67,34 +93,29 @@ proxies:
   type: http
   server: 47.107.107.24
   port: 80
-- name: 广州-HTTP-8.134.115.60-21056
-  type: http
-  server: 8.134.115.60
-  port: 21056
-- name: 张家口-182.18.83.37-7890
-  type: socks5
-  server: 182.18.83.37
-  port: 7890
-  udp: false
 proxy-groups:
 - name: 国内节点-手动选择
   type: select
   proxies:
+  - 北京-HTTP-221.223.203.55-8888
   - 北京-HTTP-111.192.28.24-8888
-  - 北京-HTTP-111.192.52.56-8888
+  - 北京-HTTP-111.192.42.91-8888
+  - 北京-HTTP-111.192.54.182-8888
   - 北京-HTTP-101.251.204.174-8080
   - 上海-HTTP-106.14.104.209-8080
+  - 北京-HTTP-114.244.223.68-8888
+  - 北京-HTTP-123.119.176.120-8888
+  - 北京-HTTP-123.119.179.101-8888
   - 北京-HTTP-123.121.113.161-8888
+  - 北京-HTTP-123.121.123.216-8888
   - 北京-HTTP-222.128.178.134-8888
-  - 北京-HTTP-114.252.202.38-8888
+  - 苏州-221.225.48.100-8989
   - 杭州-HTTP-114.55.168.172-8080
   - 重庆-113.249.111.67-1080
   - 北京-39.106.165.196-1080
-  - 北京-HTTP-221.221.162.6-8888
+  - 张家口-182.18.83.37-7890
   - 北京-HTTP-39.106.165.196-8080
   - 上海-HTTP-47.103.30.64-8080
   - 深圳-HTTP-47.107.107.24-80
-  - 广州-HTTP-8.134.115.60-21056
-  - 张家口-182.18.83.37-7890
 rules:
 - MATCH,国内节点-手动选择
