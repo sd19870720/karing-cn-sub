@@ -1,44 +1,47 @@
 {
-  "checked_at": "2026-11-18T13:55:35.064858+00:00",
+  "checked_at": "2026-11-18T21:54:30.750392+00:00",
   "state": "ok",
   "environment": "GitHub Actions runner",
   "candidates": 600,
-  "passed": 17,
+  "passed": 34,
   "failures": {
-    "timeout": 422,
-    "connection_failed": 120,
+    "timeout": 405,
+    "connection_failed": 122,
     "curl_56": 6,
-    "exit_unverified": 9,
-    "socks_failed": 23,
+    "exit_unverified": 14,
+    "socks_failed": 15,
     "non_cn_exit": 1,
-    "tls_failed": 2
+    "tls_failed": 2,
+    "curl_43": 1
   },
   "iphone_and_douyin": "not_verified",
   "exit_check_services": [
-    "https://ipwho.is/"
+    "https://myip.ipip.net/"
   ],
-  "candidates_available": 653,
+  "candidates_available": 651,
   "candidate_protocols": {
-    "http": 276,
-    "socks5": 324
+    "http": 270,
+    "socks5": 330
   },
-  "unique_exits": 17,
+  "unique_exits": 33,
   "protocols": {
-    "http": 16,
-    "socks5": 1
+    "http": 31,
+    "socks5": 3
   },
   "areas": {
-    "北京": 13,
-    "Yuzhong": 1,
-    "Honghe Hanizu Yizu Zizhizhou": 1,
+    "北京": 27,
+    "佛山": 1,
+    "上海": 2,
+    "杭州": 1,
+    "重庆": 1,
     "深圳": 1,
-    "广州": 1
+    "丽水": 1
   },
   "serving_previous": false,
   "last_success": {
-    "checked_at": "2026-11-18T13:55:35.064858+00:00",
-    "expires_at": "2026-11-18T15:55:35.064858+00:00",
-    "nodes": 17
+    "checked_at": "2026-11-18T21:54:30.750392+00:00",
+    "expires_at": "2026-11-18T23:54:30.750392+00:00",
+    "nodes": 34
   },
   "subscription_available": true
 }
